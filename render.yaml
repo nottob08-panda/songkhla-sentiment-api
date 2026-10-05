@@ -1,0 +1,24 @@
+# Render Blueprint: Render อ่านไฟล์นี้แล้วสร้าง web service ให้อัตโนมัติ (ฟรี ไม่ต้องใช้บัตรเครดิต)
+# Render Dashboard > New > Blueprint > เลือก GitHub repo นี้
+services:
+  - type: web
+    name: songkhla-sentiment-api
+    runtime: python
+    plan: free                       # RAM 512 MB, 0.1 CPU (วัดแล้วใช้จริงประมาณ 360 MB)
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.11"             # ตรงกับเวอร์ชันที่ทดสอบ (scikit-learn 1.6.1)
+      - key: MODEL_VERSION
+        value: nb-v1
+      # ค่าความลับ: Render จะให้กรอกตอนสร้าง (ไม่ถูกเก็บในไฟล์นี้)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false
+      - key: MYMEMORY_EMAIL
+        sync: false

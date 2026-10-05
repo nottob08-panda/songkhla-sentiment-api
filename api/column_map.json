@@ -1,0 +1,25 @@
+{
+  "_comment": "ชื่อผลลัพธ์จาก pipeline (ซ้าย) -> ชื่อคอลัมน์ในตาราง Supabase (ขวา). ถ้าเปลี่ยนชื่อคอลัมน์ แก้ที่ไฟล์นี้ที่เดียว. ถ้าไม่อยากบันทึกผลไหน ให้ใส่ null",
+  "table": "reviews",
+  "id_column": "reviewId",
+  "text_column": "text",
+  "status_column": "analysis_status",
+  "error_column": "analysis_error",
+  "fields": {
+    "processed_text": "processed_text",
+    "originalLanguage": "originalLanguage",
+    "sentiment": "sentiment",
+    "prob_positive": "prob_positive",
+    "prob_neutral": "prob_neutral",
+    "prob_negative": "prob_negative",
+    "confidence": "confidence",
+    "analyzable": "analyzable",
+    "sentiment_text": "sentiment_text",
+    "positive_text": "positive_text",
+    "negative_text": "negative_text",
+    "n_sentiment_terms": "n_sentiment_terms",
+    "model_version": "model_version",
+    "analyzed_at": "analyzed_at",
+    "translation_provider": null
+  }
+}

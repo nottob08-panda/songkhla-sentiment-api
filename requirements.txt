@@ -1,0 +1,14 @@
+# เวอร์ชันที่ทดสอบแล้วว่าให้ผลตรงกับข้อมูลเดิมทุกแถว (tests/test_parity.py)
+# scikit-learn ต้องเป็น 1.6.1 ตรงกับตอนบันทึกโมเดลใน Colab
+# pythainlp มีผลต่อการตัดคำ ถ้าเปลี่ยนเวอร์ชันให้รัน test_parity.py ใหม่ทุกครั้ง
+scikit-learn==1.6.1
+numpy==2.2.6
+scipy==1.18.1
+joblib==1.6.0
+pythainlp==5.3.8
+fastapi==0.142.2
+uvicorn==0.54.0
+httpx==0.28.1
+pydantic==2.13.5
+langdetect==1.0.9
+deep-translator==1.11.4
