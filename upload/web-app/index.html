@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>รีวิวเที่ยวสงขลา</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <p class="eyebrow">สงขลา · หาดใหญ่</p>
+        <h1>รีวิวสถานที่ท่องเที่ยว</h1>
+        <p class="sub">เขียนรีวิวได้ทุกภาษา ระบบจะวิเคราะห์ความรู้สึกและดึงวลีสำคัญให้อัตโนมัติ</p>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div id="fatal" class="fatal" hidden></div>
+
+      <section class="picker">
+        <label for="place">สถานที่</label>
+        <select id="place" disabled><option>กำลังโหลด…</option></select>
+      </section>
+
+      <section id="summary" class="card summary" aria-live="polite"></section>
+
+      <section class="card">
+        <h2>เขียนรีวิว</h2>
+        <form id="review-form">
+          <fieldset class="stars" aria-label="ให้คะแนน">
+            <input type="radio" id="s5" name="stars" value="5" checked /><label for="s5" title="5 ดาว">★</label>
+            <input type="radio" id="s4" name="stars" value="4" /><label for="s4" title="4 ดาว">★</label>
+            <input type="radio" id="s3" name="stars" value="3" /><label for="s3" title="3 ดาว">★</label>
+            <input type="radio" id="s2" name="stars" value="2" /><label for="s2" title="2 ดาว">★</label>
+            <input type="radio" id="s1" name="stars" value="1" /><label for="s1" title="1 ดาว">★</label>
+          </fieldset>
+          <textarea id="text" maxlength="5000" rows="4" required
+            placeholder="เล่าประสบการณ์ของคุณ (ภาษาใดก็ได้ เช่น ไทย English 中文)"></textarea>
+          <div class="form-row">
+            <span id="count" class="muted">0 / 5000</span>
+            <button type="submit" id="submit" disabled>ส่งรีวิว</button>
+          </div>
+        </form>
+        <div id="result" class="result" aria-live="polite" hidden></div>
+      </section>
+
+      <section class="card">
+        <h2>รีวิวล่าสุด</h2>
+        <ul id="reviews" class="reviews"></ul>
+      </section>
+    </main>
+
+    <footer class="wrap foot">
+      วิเคราะห์ด้วย TF-IDF + Naive Bayes · Group 19
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
