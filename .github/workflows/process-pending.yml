@@ -1,0 +1,35 @@
+# ทำงานทุก 15 นาที: วิเคราะห์รีวิวที่ค้าง pending/failed (เช่น webhook มาตอนเซิร์ฟเวอร์หลับ หรือแปลภาษาไม่สำเร็จ)
+# การกันเซิร์ฟเวอร์หลับใช้ cron-job.org แยกต่างหาก (ดู README) เพราะงานตามเวลาของ GitHub อาจเลื่อนเวลาได้
+# ตั้งค่าใน GitHub repo > Settings > Secrets and variables > Actions
+#   SENTIMENT_API_URL  เช่น https://songkhla-sentiment-api.onrender.com
+#   WEBHOOK_SECRET     ค่าเดียวกับที่ตั้งใน Render
+# หมายเหตุ: GitHub จะหยุดงานตามเวลาอัตโนมัติ ถ้า repo ไม่มีความเคลื่อนไหวนาน 60 วัน
+name: process-pending-reviews
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}          # กดรันเองได้จากแท็บ Actions
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wake up API
+        run: |
+          for i in 1 2 3 4 5 6; do          # เซิร์ฟเวอร์ฟรีที่หลับอยู่ใช้เวลาตื่นประมาณ 1 นาที
+            if curl -fsS --max-time 60 "$SENTIMENT_API_URL/health"; then exit 0; fi
+            echo "API is waking up... retry $i"; sleep 20
+          done
+          exit 1
+        env:
+          SENTIMENT_API_URL: ${{ secrets.SENTIMENT_API_URL }}
+
+      - name: Process pending reviews
+        run: |
+          curl -fsS --max-time 300 -X POST "$SENTIMENT_API_URL/v1/process-pending?limit=100" \
+               -H "x-webhook-secret: $WEBHOOK_SECRET"
+        env:
+          SENTIMENT_API_URL: ${{ secrets.SENTIMENT_API_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
