@@ -20,5 +20,7 @@ services:
         sync: false
       - key: WEBHOOK_SECRET
         sync: false
+      - key: TYPHOON_API_KEY         # แปลรีวิวต่างภาษา (ฟรีจาก playground.opentyphoon.ai)
+        sync: false
       - key: MYMEMORY_EMAIL
         sync: false
