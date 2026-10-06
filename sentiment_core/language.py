@@ -2,8 +2,11 @@
 
 โมเดลเทรนจากข้อความภาษาไทย (รีวิวต่างภาษาใช้คำแปลของ Google) รีวิวใหม่จึงต้องผ่านขั้นตอนเดียวกัน
 - ภาษาไทย  -> ใช้ข้อความเดิม
-- ภาษาอื่น -> แปลเป็นไทย: Google (deep-translator) เป็นหลัก ถ้าไม่สำเร็จใช้ MyMemory สำรอง
-ถ้าแปลไม่สำเร็จทั้งคู่ จะ raise TranslationError แล้วรีวิวจะถูกบันทึกเป็น failed เพื่อลองใหม่ภายหลัง
+- ภาษาอื่น -> แปลเป็นไทย ลองตามลำดับ:
+    1. Typhoon API (ต้องมี API key ฟรีจาก opentyphoon.ai) -- นับโควตาต่อ key จึงไม่ติดปัญหา IP ร่วม
+    2. Google (deep-translator, ไม่ต้องใช้ key)       -- นับโควตาต่อ IP มักถูกบล็อกบนโฮสต์ฟรี
+    3. MyMemory (ไม่ต้องใช้ key)                     -- นับโควตาต่อ IP เช่นกัน
+ถ้าแปลไม่สำเร็จทุกตัว จะ raise TranslationError แล้วรีวิวจะถูกบันทึกเป็น failed เพื่อลองใหม่ภายหลัง
 """
 import re
 
@@ -18,6 +21,11 @@ LETTER = re.compile(r"[^\W\d_]", re.UNICODE)
 # รหัสภาษาของ langdetect -> รูปแบบเดียวกับข้อมูลเดิมจาก Google Maps (เช่น zh-Hans)
 LANG_ALIASES = {"zh-cn": "zh-Hans", "zh-tw": "zh-Hant"}
 MYMEMORY_MAX = 450                # MyMemory รับไม่เกินประมาณ 500 bytes ต่อครั้ง
+TYPHOON_URL = "https://api.opentyphoon.ai/v1/chat/completions"
+TYPHOON_DEFAULT_MODEL = "typhoon-v2.5-30b-a3b-instruct"
+TYPHOON_PROMPT = ("You are a professional translator. Translate the user's tourist review into natural Thai. "
+                  "Keep the meaning and the sentiment exactly as written. "
+                  "Output only the Thai translation, without quotes, notes, or explanations.")
 
 
 class TranslationError(Exception):
@@ -40,6 +48,23 @@ def detect_language(text):
     except Exception:
         return "und"
     return LANG_ALIASES.get(code, code)
+
+
+def _typhoon(text, timeout, api_key, model=None, transport=None):
+    with httpx.Client(timeout=timeout, transport=transport) as client:
+        r = client.post(TYPHOON_URL, headers={"Authorization": f"Bearer {api_key}"}, json={
+            "model": model or TYPHOON_DEFAULT_MODEL,
+            "messages": [{"role": "system", "content": TYPHOON_PROMPT},
+                         {"role": "user", "content": text}],
+            "temperature": 0,
+            "max_tokens": min(4096, 64 + 3 * len(text)),
+        })
+        r.raise_for_status()
+        out = r.json()["choices"][0]["message"]["content"] or ""
+    out = re.sub(r"<think>.*?</think>", "", out, flags=re.S).strip().strip('"“”').strip()
+    if not THAI_CHAR.search(out):                # กันกรณีโมเดลไม่ได้ตอบเป็นภาษาไทย
+        raise TranslationError(f"Typhoon returned non-Thai text: {out[:80]!r}")
+    return out
 
 
 def _google(text, timeout):
@@ -81,11 +106,16 @@ def _mymemory(text, source_lang, timeout, email=None):
     return " ".join(out)
 
 
-def translate_to_thai(text, source_lang=None, timeout=4.0, mymemory_email=None):
+def translate_to_thai(text, source_lang=None, timeout=4.0, mymemory_email=None,
+                      typhoon_api_key=None, typhoon_model=None):
     """คืน (คำแปล, ผู้ให้บริการที่ใช้)"""
     errors = []
-    for name, fn in (("google", lambda: _google(text, timeout)),
-                     ("mymemory", lambda: _mymemory(text, source_lang, timeout, mymemory_email))):
+    providers = []
+    if typhoon_api_key:                          # LLM ใช้เวลาตอบนานกว่า จึงให้เวลารอมากกว่า
+        providers.append(("typhoon", lambda: _typhoon(text, max(timeout, 10.0), typhoon_api_key, typhoon_model)))
+    providers += [("google", lambda: _google(text, timeout)),
+                  ("mymemory", lambda: _mymemory(text, source_lang, timeout, mymemory_email))]
+    for name, fn in providers:
         try:
             result = fn()
             if result and result.strip():

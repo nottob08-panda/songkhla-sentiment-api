@@ -23,11 +23,13 @@ class AnalysisResult:
 
 class ReviewAnalyzer:
     def __init__(self, model_dir, model_version="nb-v1", translate=True, mymemory_email=None,
-                 translator=None):
+                 translator=None, typhoon_api_key=None, typhoon_model=None):
         self.model = SentimentModel(model_dir, model_version)
         self.extractor = PhraseExtractor()
         self.translate = translate
         self.mymemory_email = mymemory_email
+        self.typhoon_api_key = typhoon_api_key
+        self.typhoon_model = typhoon_model
         self._translator = translator or translate_to_thai   # เปลี่ยนได้ (เช่น ใช้ตัวจำลองตอนทดสอบ)
 
     @property
@@ -40,7 +42,9 @@ class ReviewAnalyzer:
         lang = detect_language(text)
         if lang in (None, "th") or not has_letters(text) or not self.translate:
             return text, lang, None
-        translated, provider = self._translator(text, lang, mymemory_email=self.mymemory_email)
+        translated, provider = self._translator(text, lang, mymemory_email=self.mymemory_email,
+                                                typhoon_api_key=self.typhoon_api_key,
+                                                typhoon_model=self.typhoon_model)
         return translated, lang, provider
 
     def analyze(self, text):
