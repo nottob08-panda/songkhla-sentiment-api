@@ -12,6 +12,8 @@ Endpoints
   WEBHOOK_SECRET               รหัสลับที่ Supabase / GitHub Actions ต้องส่งมาใน header x-webhook-secret
   MODEL_DIR                    โฟลเดอร์ไฟล์โมเดล (ค่าเริ่มต้น model)
   MODEL_VERSION                ชื่อรุ่นโมเดล (ค่าเริ่มต้น nb-v1)
+  TYPHOON_API_KEY              API key ฟรีจาก opentyphoon.ai ใช้แปลรีวิวต่างภาษา (แนะนำอย่างยิ่ง)
+  TYPHOON_MODEL                (ไม่บังคับ) ชื่อโมเดล Typhoon ค่าเริ่มต้น typhoon-v2.5-30b-a3b-instruct
   MYMEMORY_EMAIL               (ไม่บังคับ) เพิ่มโควตาแปลภาษาสำรอง
 """
 import hmac
@@ -80,7 +82,9 @@ def startup():
     global analyzer, repo
     analyzer = ReviewAnalyzer(BASE / os.getenv("MODEL_DIR", "model"),
                               model_version=os.getenv("MODEL_VERSION", "nb-v1"),
-                              mymemory_email=os.getenv("MYMEMORY_EMAIL"))
+                              mymemory_email=os.getenv("MYMEMORY_EMAIL"),
+                              typhoon_api_key=os.getenv("TYPHOON_API_KEY"),
+                              typhoon_model=os.getenv("TYPHOON_MODEL"))
     analyzer.analyze("ทดสอบระบบ วิวสวยมาก")          # อุ่นเครื่อง ให้คำขอแรกไม่ช้า
     if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
         repo = SupabaseRepo(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
@@ -125,7 +129,8 @@ class AnalyzeRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", **(analyzer.versions if analyzer else {}), "database": repo is not None}
+    return {"status": "ok", **(analyzer.versions if analyzer else {}), "database": repo is not None,
+            "typhoon_translation": bool(os.getenv("TYPHOON_API_KEY"))}
 
 
 @app.post("/v1/analyze")
