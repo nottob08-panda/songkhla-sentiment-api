@@ -169,3 +169,4 @@ button:disabled { opacity: .55; cursor: default; }
   .card { padding: 16px; }
 }
 .translated { margin-top: 10px !important; }
+.waiting { display: flex; align-items: center; gap: 8px; margin-top: 10px !important; }

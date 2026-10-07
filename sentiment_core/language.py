@@ -13,6 +13,8 @@ import re
 import httpx
 from langdetect import DetectorFactory, detect
 
+from . import typhoon
+
 DetectorFactory.seed = 0          # ให้ผลตรวจภาษาเหมือนเดิมทุกครั้ง
 
 THAI_CHAR = re.compile(r"[ก-๙]")
@@ -21,8 +23,8 @@ LETTER = re.compile(r"[^\W\d_]", re.UNICODE)
 # รหัสภาษาของ langdetect -> รูปแบบเดียวกับข้อมูลเดิมจาก Google Maps (เช่น zh-Hans)
 LANG_ALIASES = {"zh-cn": "zh-Hans", "zh-tw": "zh-Hant"}
 MYMEMORY_MAX = 450                # MyMemory รับไม่เกินประมาณ 500 bytes ต่อครั้ง
-TYPHOON_URL = "https://api.opentyphoon.ai/v1/chat/completions"
-TYPHOON_DEFAULT_MODEL = "typhoon-v2.5-30b-a3b-instruct"
+TYPHOON_URL = typhoon.TYPHOON_URL
+TYPHOON_DEFAULT_MODEL = typhoon.TYPHOON_DEFAULT_MODEL
 TYPHOON_PROMPT = ("You are a professional translator. Translate the user's tourist review into natural Thai. "
                   "Keep the meaning and the sentiment exactly as written. "
                   "Output only the Thai translation, without quotes, notes, or explanations.")
@@ -51,17 +53,11 @@ def detect_language(text):
 
 
 def _typhoon(text, timeout, api_key, model=None, transport=None):
-    with httpx.Client(timeout=timeout, transport=transport) as client:
-        r = client.post(TYPHOON_URL, headers={"Authorization": f"Bearer {api_key}"}, json={
-            "model": model or TYPHOON_DEFAULT_MODEL,
-            "messages": [{"role": "system", "content": TYPHOON_PROMPT},
-                         {"role": "user", "content": text}],
-            "temperature": 0,
-            "max_tokens": min(4096, 64 + 3 * len(text)),
-        })
-        r.raise_for_status()
-        out = r.json()["choices"][0]["message"]["content"] or ""
-    out = re.sub(r"<think>.*?</think>", "", out, flags=re.S).strip().strip('"“”').strip()
+    out = typhoon.chat([{"role": "system", "content": TYPHOON_PROMPT},
+                        {"role": "user", "content": text}],
+                       api_key, model, timeout=timeout,
+                       max_tokens=min(4096, 64 + 3 * len(text)), transport=transport)
+    out = out.strip('"“”').strip()
     if not THAI_CHAR.search(out):                # กันกรณีโมเดลไม่ได้ตอบเป็นภาษาไทย
         raise TranslationError(f"Typhoon returned non-Thai text: {out[:80]!r}")
     return out

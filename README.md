@@ -74,13 +74,22 @@
 | `SUPABASE_URL` | Supabase > Project Settings > API > Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase > Project Settings > API > `service_role` key (**ห้ามใส่ในโค้ดเว็บ**) |
 | `WEBHOOK_SECRET` | ตั้งเองเป็นข้อความสุ่มยาวๆ เช่น จาก https://www.uuidgenerator.net |
+| `TYPHOON_API_KEY` | API key ฟรีจาก Typhoon (ดูวิธีขอด้านล่าง) ใช้แปลรีวิวต่างภาษา **ควรใส่** |
 | `MYMEMORY_EMAIL` | (ไม่บังคับ) อีเมล เพิ่มโควตาแปลภาษาสำรองเป็น 50,000 ตัวอักษร/วัน |
+
+**วิธีขอ Typhoon API key (ฟรี):** เข้า https://playground.opentyphoon.ai > สมัคร/เข้าสู่ระบบ >
+เมนู API Key > สร้าง key (ขึ้นต้นด้วย `sk-`) > คัดลอกมาใส่
+
+> **ทำไมต้องใช้ Typhoon:** บริการแปลฟรีแบบไม่ใช้ key (Google, MyMemory) นับโควตาตาม IP
+> เซิร์ฟเวอร์ฟรีอย่าง Render ใช้ IP ร่วมกับผู้ใช้คนอื่นจำนวนมาก จึงมักโดนบล็อกตั้งแต่คำขอแรก (error 429)
+> ส่วน Typhoon นับโควตาตาม key ของเราเอง (5 คำขอ/วินาที, 200 คำขอ/นาที) จึงไม่ติดปัญหานี้
+> Google และ MyMemory ยังถูกใช้เป็นตัวสำรองเมื่อ Typhoon ไม่ตอบ
 
 5. รอ Build เสร็จ (ครั้งแรกประมาณ 3–5 นาที) แล้วเปิด
    ```
    https://<ชื่อ service>.onrender.com/health
    ```
-   ควรได้ `{"status":"ok","model_version":"nb-v1","lexicon_version":"lexicon-1","database":true}`
+   ควรได้ `{"status":"ok","model_version":"nb-v1","lexicon_version":"lexicon-1","database":true,"typhoon_translation":true}`
    และหน้า `/docs` ใช้ทดลองเรียก API ทุกตัวจากเบราว์เซอร์
 
 ถ้า Build ฟ้องเรื่องเวอร์ชัน Python ให้แก้ `PYTHON_VERSION` ใน `render.yaml` เป็นเวอร์ชัน 3.12 ที่ Render รองรับ
@@ -148,6 +157,14 @@ API ตอบกลับทันที (202) แล้ววิเคราะ
 **เปลี่ยนชื่อคอลัมน์/ตาราง** — แก้ `api/column_map.json` (ไม่ต้องแก้โค้ด) และถ้าเป็นคอลัมน์ผลวิเคราะห์
 ให้แก้ฟังก์ชัน `reviews_reset_analysis()` ในไฟล์ SQL ด้วย ถ้าไม่อยากบันทึกผลใด ให้ใส่ `null` ใน column_map
 
+**สลับวิธีสกัดวลี (พจนานุกรม ↔ LLM)**
+- Render → Environment → `PHRASE_METHOD` = `lexicon` (ค่าเริ่มต้น) หรือ `llm` แล้ว Save (Render deploy ใหม่เอง)
+- `llm` ใช้ Typhoon API สกัดวลี ครอบคลุมคำนอกพจนานุกรม ถ้า Typhoon ล่ม/โควตาเต็ม จะถอยไปใช้พจนานุกรมให้อัตโนมัติ
+- ดูได้ว่าแถวไหนใช้วิธีอะไรจาก `model_version`: `nb-v1/llm-typhoon-v8.1` หรือ `nb-v1/lexicon-1`
+- โหมด `llm` บันทึก 2 จังหวะ: sentiment ก่อน (สถานะยัง `pending`) แล้ววลี + `done` ตามมาอีก 1–2 วินาที
+  หน้าเว็บใช้ `submitReview(..., { onProgress })` แสดงผลบวก/ลบก่อนได้ (ดู `web-app/src/main.js`)
+- ก่อนเปิดใช้ ให้วัดผลด้วย `python tools/compare_phrase_methods.py reviews.csv --sample 30`
+
 **เพิ่มคำในพจนานุกรมสกัดวลี**
 1. Export view `reviews_without_phrases` เป็น CSV
 2. `python tools/suggest_lexicon_words.py reviews_without_phrases.csv` ได้รายการคำที่น่าสนใจ
@@ -181,10 +198,10 @@ REVIEWS_CSV=reviews.csv pytest tests
 
 ## ข้อจำกัดที่ควรรู้
 
-- **การแปลภาษาใช้บริการฟรีที่ไม่เป็นทางการ** (Google ผ่าน deep-translator, สำรองด้วย MyMemory)
-  อาจล่มหรือถูกจำกัดได้ ระบบจะบันทึก `failed` แล้วลองใหม่อัตโนมัติ คำแปลอาจต่างจากของ Google Maps
-  ในข้อมูลเทรนเล็กน้อย จึงอาจกระทบความแม่นยำของรีวิวต่างภาษา
-  (การเชื่อมบริการแปลจริงทดสอบในสภาพแวดล้อมที่พัฒนาไม่ได้ ทดสอบด้วยตัวจำลองแทน ควรทดสอบรีวิวภาษาอังกฤษหลัง deploy)
+- **การแปลภาษา** ใช้ Typhoon เป็นหลัก (สำรองด้วย Google และ MyMemory) คำแปลจาก LLM อาจต่างจาก
+  คำแปลของ Google Maps ที่ใช้ในข้อมูลเทรนเล็กน้อย จึงอาจกระทบความแม่นยำของรีวิวต่างภาษา
+  ถ้าแปลไม่สำเร็จทุกตัว ระบบจะบันทึก `failed` แล้วลองใหม่อัตโนมัติ
+  (การเรียก API จริงทดสอบในสภาพแวดล้อมที่พัฒนาไม่ได้ ทดสอบด้วยตัวจำลองแทน ควรทดสอบรีวิวภาษาอังกฤษหลัง deploy)
 - **เวลาตอบสนอง** ปกติเห็นผลภายใน 1–3 วินาที (รีวิวต่างภาษาขึ้นกับความเร็วบริการแปล)
   ถ้าเซิร์ฟเวอร์หลับ webhook จะหมดเวลารอ รีวิวจะค้างเป็น pending แล้ว GitHub Actions
   วิเคราะห์ให้ภายใน 15 นาที รีวิวไม่หาย หน้าเว็บจะแสดง "กำลังวิเคราะห์" แทน

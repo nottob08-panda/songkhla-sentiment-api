@@ -114,23 +114,31 @@ async function refreshPlace() {
 }
 
 // ---------------------------------------------------------------- ส่งรีวิว
-function renderResult(r, seconds) {
+function renderResult(r, t) {
+  // t = { sentiment: วินาทีที่ได้ผลบวก/ลบ, phrases: วินาทีที่ได้วลี (ถ้ามา) }
   const box = $("result");
   box.replaceChildren();
   box.hidden = false;
   box.className = "result";
 
-  if (r.analysis_status === "done" && r.sentiment) {
+  if (r.sentiment) {
+    const done = r.analysis_status === "done";
+    const timing = `ผลบวก/ลบ ${t.sentiment ?? t.phrases} วิ` + (done && t.sentiment ? ` · วลี ${t.phrases} วิ` : "");
     const head = el("div", "res-head");
-    head.append(sentimentBadge(r.sentiment),
-      el("span", "muted small", `มั่นใจ ${pct(r.confidence)} · ใช้เวลา ${seconds} วินาที`));
+    head.append(sentimentBadge(r.sentiment), el("span", "muted small", `มั่นใจ ${pct(r.confidence)} · ${timing}`));
     box.append(head, probBar(r.prob_positive, r.prob_neutral, r.prob_negative));
     if (r.originalLanguage && r.originalLanguage !== "th" && r.processed_text) {
       box.append(el("p", "muted small translated", `แปลเป็นไทย (${r.originalLanguage}): ${r.processed_text}`));
     }
+    if (!done) {                                   // จังหวะที่ 1: วลียังไม่มา
+      const wait = el("p", "muted small waiting");
+      wait.append(el("span", "spinner"), el("span", null, "กำลังสกัดวลี…"));
+      box.append(wait);
+      return;
+    }
     box.append(phrases(r));
     if (!r.positive_text && !r.negative_text) {
-      box.append(el("p", "muted small", "ไม่พบวลีแสดงความรู้สึกที่ระบบรู้จัก"));
+      box.append(el("p", "muted small", "ไม่พบวลีแสดงความรู้สึกในรีวิวนี้"));
     }
   } else if (r.analysis_status === "done") {
     box.append(el("p", null, "บันทึกรีวิวแล้ว ข้อความนี้วิเคราะห์อารมณ์ไม่ได้ (เช่น มีแต่อีโมจิ)"));
@@ -165,8 +173,13 @@ function setupForm() {
     const started = performance.now();
     try {
       const stars = Number(form.querySelector("input[name=stars]:checked").value);
-      const row = await submitReview({ attractionId: current, stars, text: value });
-      renderResult(row, ((performance.now() - started) / 1000).toFixed(1));
+      const secs = () => ((performance.now() - started) / 1000).toFixed(1);
+      const t = {};
+      const row = await submitReview({ attractionId: current, stars, text: value }, {
+        onProgress: (partial) => { t.sentiment = secs(); renderResult(partial, t); },
+      });
+      t.phrases = secs();
+      renderResult(row, t);
       form.reset();
       $("count").textContent = "0 / 5000";
       await refreshPlace();
@@ -191,6 +204,14 @@ async function init() {
   try {
     const [summary, categories] = await Promise.all([getPlaceSummary(), listCategories()]);
     places = summary.sort((a, b) => a.attraction_name.localeCompare(b.attraction_name, "th"));
+    if (!places.length) {
+      // ไม่มี error แต่ได้ 0 แถว = ส่วนใหญ่เป็นเพราะ Row Level Security ซ่อนข้อมูล (ยังไม่ได้รัน 02_web_permissions.sql)
+      $("place").replaceChildren(el("option", null, "ไม่พบสถานที่"));
+      $("submit").disabled = true;
+      showFatal("ไม่พบข้อมูลสถานที่: ตรวจว่ารัน supabase/02_web_permissions.sql แล้ว " +
+        "และ VITE_SUPABASE_URL ชี้ไปที่โปรเจกต์ Supabase ที่มีข้อมูล");
+      return;
+    }
     const catName = Object.fromEntries(categories.map((c) => [c.category_id, c.category_name]));
 
     // จัดกลุ่มตามหมวดหมู่ใน dropdown

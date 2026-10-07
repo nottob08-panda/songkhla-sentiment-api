@@ -119,3 +119,30 @@ def test_done_rows_are_not_overwritten(env):
     client.post("/v1/webhook/reviews", json={"record": {"reviewId": "R000001", "text": "แย่มาก"}},
                 headers={"x-webhook-secret": SECRET})
     assert fake.rows["R000001"]["sentiment"] == "positive"
+
+
+def test_webhook_two_phase_with_llm(env):
+    """โหมด llm: จังหวะ 1 เขียน sentiment โดยสถานะยัง pending, จังหวะ 2 เขียนวลี + done"""
+    from sentiment_core.llm_extractor import LLMPhraseExtractor
+    from sentiment_core import typhoon
+    client, fake = env
+
+    def reply(request):
+        body = {"opinions": [{"aspect": "น้ำ", "opinion": "ใสแจ๋ว", "polarity": "positive"}]}
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(body, ensure_ascii=False)}}]})
+    typhoon.MIN_INTERVAL = 0
+    old = (appmod.analyzer.phrase_method, appmod.analyzer.llm)
+    appmod.analyzer.phrase_method = "llm"
+    appmod.analyzer.llm = LLMPhraseExtractor("k", transport=httpx.MockTransport(reply))
+    try:
+        fake.rows["R007300"] = {"reviewId": "R007300", "text": "น้ำทะเลใสแจ๋วมาก", "analysis_status": "pending"}
+        client.post("/v1/webhook/reviews", json={"record": fake.rows["R007300"]},
+                    headers={"x-webhook-secret": SECRET})
+    finally:
+        appmod.analyzer.phrase_method, appmod.analyzer.llm = old
+    patches = [b for rid, b in fake.patches if rid == "R007300"]
+    assert len(patches) == 2
+    assert patches[0]["analysis_status"] == "pending" and patches[0]["sentiment"] == "positive"
+    assert "sentiment_text" not in patches[0]
+    assert patches[1]["analysis_status"] == "done" and patches[1]["sentiment_text"] == "น้ำใสแจ๋ว"
+    assert patches[1]["model_version"] == "nb-v1/llm-typhoon-v8.1"

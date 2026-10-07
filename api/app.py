@@ -15,6 +15,7 @@ Endpoints
   TYPHOON_API_KEY              API key ฟรีจาก opentyphoon.ai ใช้แปลรีวิวต่างภาษา (แนะนำอย่างยิ่ง)
   TYPHOON_MODEL                (ไม่บังคับ) ชื่อโมเดล Typhoon ค่าเริ่มต้น typhoon-v2.5-30b-a3b-instruct
   MYMEMORY_EMAIL               (ไม่บังคับ) เพิ่มโควตาแปลภาษาสำรอง
+  PHRASE_METHOD                lexicon (ค่าเริ่มต้น) หรือ llm = สกัดวลีด้วย Typhoon (ต้องมี TYPHOON_API_KEY)
 """
 import hmac
 import json
@@ -64,8 +65,8 @@ class SupabaseRepo:
         r.raise_for_status()
 
 
-def to_db_payload(result):
-    payload = {COLUMN_MAP["status_column"]: result.status, COLUMN_MAP["error_column"]: result.error}
+def to_db_payload(result, status=None):
+    payload = {COLUMN_MAP["status_column"]: status or result.status, COLUMN_MAP["error_column"]: result.error}
     for name, value in result.fields.items():
         col = COLUMN_MAP["fields"].get(name)
         if col:
@@ -84,7 +85,8 @@ def startup():
                               model_version=os.getenv("MODEL_VERSION", "nb-v1"),
                               mymemory_email=os.getenv("MYMEMORY_EMAIL"),
                               typhoon_api_key=os.getenv("TYPHOON_API_KEY"),
-                              typhoon_model=os.getenv("TYPHOON_MODEL"))
+                              typhoon_model=os.getenv("TYPHOON_MODEL"),
+                              phrase_method=os.getenv("PHRASE_METHOD", "lexicon").strip().lower())
     analyzer.analyze("ทดสอบระบบ วิวสวยมาก")          # อุ่นเครื่อง ให้คำขอแรกไม่ช้า
     if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
         repo = SupabaseRepo(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
@@ -112,8 +114,16 @@ def require_repo():
 
 
 def process_review(review_id, text):
-    result = analyzer.analyze(text)
+    """วิเคราะห์ 1 รีวิวแล้วเขียนผลกลับ
+    โหมด llm บันทึก 2 จังหวะ: (1) sentiment ทันที โดยสถานะยังเป็น pending  (2) วลี + สถานะ done
+    หน้าเว็บจึงแสดงผลบวก/ลบได้เร็วเท่าเดิม แล้วค่อยเติมวลีตามมา
+    ถ้าเซิร์ฟเวอร์ล้มระหว่าง 2 จังหวะ แถวยังเป็น pending -> GitHub Actions จะวิเคราะห์ใหม่ให้เอง"""
+    two_phase = analyzer.phrase_method == "llm"
+    result = analyzer.analyze(text, with_phrases=not two_phase)
     try:
+        if result.status == "scored":
+            repo.update(review_id, to_db_payload(result, status="pending"))
+            result = analyzer.complete(result)
         repo.update(review_id, to_db_payload(result))
     except Exception as e:
         log.error("update failed for %s: %s", review_id, e)
