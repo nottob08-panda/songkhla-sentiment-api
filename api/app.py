@@ -17,6 +17,7 @@ Endpoints
   MYMEMORY_EMAIL               (ไม่บังคับ) เพิ่มโควตาแปลภาษาสำรอง
   PHRASE_METHOD                lexicon (ค่าเริ่มต้น) หรือ llm = สกัดวลีด้วย Typhoon (ต้องมี TYPHOON_API_KEY)
   LLM_PROMPT                   รุ่น prompt ของ LLM: v9 (ค่าเริ่มต้น = v9.3 ผ่านการตรวจแล้ว) หรือ v8.1 (รุ่นเก่า)
+  COLUMN_MAP_FILE              ผังตาราง/คอลัมน์ในโฟลเดอร์ api: column_map.json (ค่าเริ่มต้น) หรือ column_map.friend.json
 """
 import hmac
 import json
@@ -35,7 +36,10 @@ log = logging.getLogger("sentiment-api")
 logging.basicConfig(level=logging.INFO)
 
 BASE = Path(__file__).resolve().parent.parent
-COLUMN_MAP = json.loads((Path(__file__).parent / "column_map.json").read_text(encoding="utf-8"))
+# เลือกไฟล์ผังคอลัมน์ตามฐานข้อมูลที่ต่อ: column_map.json (Supabase ทดสอบของเรา, reviewId = R0xxxxx)
+# หรือ column_map.friend.json (ฐานข้อมูลเว็บเพื่อน, id = ตัวเลข) -- ตั้งใน Render: COLUMN_MAP_FILE=column_map.friend.json
+COLUMN_MAP_FILE = os.getenv("COLUMN_MAP_FILE", "column_map.json")
+COLUMN_MAP = json.loads((Path(__file__).parent / COLUMN_MAP_FILE).read_text(encoding="utf-8"))
 MAX_TEXT_LEN = 5000
 
 
@@ -142,6 +146,7 @@ class AnalyzeRequest(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok", **(analyzer.versions if analyzer else {}), "database": repo is not None,
+            "column_map": COLUMN_MAP_FILE,
             "typhoon_translation": bool(os.getenv("TYPHOON_API_KEY"))}
 
 
