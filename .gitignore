@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+# ผลรันบนเครื่อง (มีข้อมูลรีวิว + ไฟล์ใหญ่) ไม่ต้องขึ้น GitHub
+eval_*/
+phrases_*/
+*.checkpoint.jsonl
+phrase_method_comparison.xlsx
+reviews.csv
