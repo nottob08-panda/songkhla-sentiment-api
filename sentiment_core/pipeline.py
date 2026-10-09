@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from .extractor import PhraseExtractor
-from .llm_extractor import LLMExtractionError, LLMPhraseExtractor
+from .llm_extractor import LLMExtractionError, make_extractor
 from .language import TranslationError, detect_language, has_letters, translate_to_thai
 from .model import SentimentModel
 
@@ -27,7 +27,7 @@ class AnalysisResult:
 class ReviewAnalyzer:
     def __init__(self, model_dir, model_version="nb-v1", translate=True, mymemory_email=None,
                  translator=None, typhoon_api_key=None, typhoon_model=None, phrase_method="lexicon",
-                 llm_extractor=None):
+                 llm_extractor=None, llm_prompt="v8.1"):
         self.model = SentimentModel(model_dir, model_version)
         self.extractor = PhraseExtractor()
         self.translate = translate
@@ -40,13 +40,14 @@ class ReviewAnalyzer:
         if phrase_method == "llm" and not (llm_extractor or typhoon_api_key):
             raise ValueError("phrase_method='llm' needs TYPHOON_API_KEY")
         self.phrase_method = phrase_method
-        self.llm = llm_extractor or (LLMPhraseExtractor(typhoon_api_key, typhoon_model)
+        self.llm = llm_extractor or (make_extractor(llm_prompt, typhoon_api_key, typhoon_model)
                                      if phrase_method == "llm" else None)
 
     @property
     def versions(self):
         return {"model_version": self.model.version, "lexicon_version": self.extractor.lexicon_version,
-                "phrase_method": self.phrase_method}
+                "phrase_method": self.phrase_method,
+                "llm_version": self.llm.version if self.llm else None}
 
     def extract_phrases(self, text):
         """คืน (ผลวลี, รุ่นของวิธีที่ใช้จริง)"""

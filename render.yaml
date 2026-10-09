@@ -25,4 +25,6 @@ services:
       - key: MYMEMORY_EMAIL
         sync: false
       - key: PHRASE_METHOD           # lexicon = พจนานุกรม | llm = สกัดวลีด้วย Typhoon (ถอยไป lexicon เองถ้าล่ม)
-        value: lexicon
+        value: llm
+      - key: LLM_PROMPT              # v9 = llm-typhoon-v9.3 (ตรวจด้วยคนบนชุด holdout แล้ว precision 0.97)
+        value: v9

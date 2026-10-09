@@ -16,6 +16,7 @@ Endpoints
   TYPHOON_MODEL                (ไม่บังคับ) ชื่อโมเดล Typhoon ค่าเริ่มต้น typhoon-v2.5-30b-a3b-instruct
   MYMEMORY_EMAIL               (ไม่บังคับ) เพิ่มโควตาแปลภาษาสำรอง
   PHRASE_METHOD                lexicon (ค่าเริ่มต้น) หรือ llm = สกัดวลีด้วย Typhoon (ต้องมี TYPHOON_API_KEY)
+  LLM_PROMPT                   รุ่น prompt ของ LLM: v9 (ค่าเริ่มต้น = v9.3 ผ่านการตรวจแล้ว) หรือ v8.1 (รุ่นเก่า)
 """
 import hmac
 import json
@@ -86,7 +87,8 @@ def startup():
                               mymemory_email=os.getenv("MYMEMORY_EMAIL"),
                               typhoon_api_key=os.getenv("TYPHOON_API_KEY"),
                               typhoon_model=os.getenv("TYPHOON_MODEL"),
-                              phrase_method=os.getenv("PHRASE_METHOD", "lexicon").strip().lower())
+                              phrase_method=os.getenv("PHRASE_METHOD", "lexicon").strip().lower(),
+                              llm_prompt=os.getenv("LLM_PROMPT", "v9").strip().lower())
     analyzer.analyze("ทดสอบระบบ วิวสวยมาก")          # อุ่นเครื่อง ให้คำขอแรกไม่ช้า
     if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
         repo = SupabaseRepo(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])

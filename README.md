@@ -158,12 +158,13 @@ API ตอบกลับทันที (202) แล้ววิเคราะ
 ให้แก้ฟังก์ชัน `reviews_reset_analysis()` ในไฟล์ SQL ด้วย ถ้าไม่อยากบันทึกผลใด ให้ใส่ `null` ใน column_map
 
 **สลับวิธีสกัดวลี (พจนานุกรม ↔ LLM)**
-- Render → Environment → `PHRASE_METHOD` = `lexicon` (ค่าเริ่มต้น) หรือ `llm` แล้ว Save (Render deploy ใหม่เอง)
+- Render → Environment → `PHRASE_METHOD` = `llm` และ `LLM_PROMPT` = `v9` (llm-typhoon-v9.3) แล้ว Save (Render deploy ใหม่เอง) ; ถ้า Typhoon ล่ม ระบบถอยไปใช้ lexicon เอง
 - `llm` ใช้ Typhoon API สกัดวลี ครอบคลุมคำนอกพจนานุกรม ถ้า Typhoon ล่ม/โควตาเต็ม จะถอยไปใช้พจนานุกรมให้อัตโนมัติ
 - ดูได้ว่าแถวไหนใช้วิธีอะไรจาก `model_version`: `nb-v1/llm-typhoon-v8.1` หรือ `nb-v1/lexicon-1`
 - โหมด `llm` บันทึก 2 จังหวะ: sentiment ก่อน (สถานะยัง `pending`) แล้ววลี + `done` ตามมาอีก 1–2 วินาที
   หน้าเว็บใช้ `submitReview(..., { onProgress })` แสดงผลบวก/ลบก่อนได้ (ดู `web-app/src/main.js`)
 - ก่อนเปิดใช้ ให้วัดผลด้วย `python tools/compare_phrase_methods.py reviews.csv --sample 30`
+- สกัดวลีด้วย LLM ให้รีวิวทั้งชุด (มี checkpoint หยุด/ทำต่อได้): `python tools/extract_all_phrases.py reviews.csv --workers 2`
 
 **เพิ่มคำในพจนานุกรมสกัดวลี**
 1. Export view `reviews_without_phrases` เป็น CSV
