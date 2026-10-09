@@ -210,3 +210,20 @@ REVIEWS_CSV=reviews.csv pytest tests
   (คาดว่าหลักสิบมิลลิวินาที ยังต่ำกว่า 3 วินาทีมาก) ควรวัดซ้ำหลัง deploy
 - **โมเดลไม่เรียนรู้เองจากรีวิวใหม่** ต้องเทรนใหม่แยกต่างหาก
 - **การสกัดวลีจับได้เฉพาะคำในพจนานุกรม** ปรับปรุงได้ตามหัวข้อ "เพิ่มคำในพจนานุกรม"
+
+## เชื่อมกับเว็บเพื่อน (tourism-dashboard, Supabase คนละโปรเจกต์)
+
+API ตัวเดียวเขียนลงฐานข้อมูลได้ทีละที่ เลือกด้วยตัวแปร `COLUMN_MAP_FILE` บน Render
+
+| ฐานข้อมูล | `COLUMN_MAP_FILE` | id รีวิว |
+|---|---|---|
+| Supabase ทดสอบของเรา (web-app) | `column_map.json` (ค่าเริ่มต้น) | `reviewId` = R007202… |
+| Supabase เว็บเพื่อน | `column_map.friend.json` | `id` = ตัวเลข |
+
+ไฟล์ SQL สำหรับฐานข้อมูลเพื่อนอยู่ใน `supabase/friend/` (รันใน SQL Editor ของ Supabase เพื่อน ตามลำดับ)
+1. `00_inspect_friend_db.sql` อ่านอย่างเดียว: ดูฟังก์ชัน / trigger / RLS / จำนวนข้อมูล
+2. `01_preview_place_sentiment.sql` อ่านอย่างเดียว: ตรวจว่าวิธีคำนวณ sentiment รายสถานที่ตรงกับค่าเดิม
+3. `02_connect_sentiment_api.sql` ติดตั้ง: คอลัมน์ผลวิเคราะห์ใน `reviews`, trigger กันผู้ใช้ปลอมผล,
+   trigger คำนวณ `attractions.avg_prob_*` / `place_sentiment` ใหม่เมื่อรีวิววิเคราะห์เสร็จ, view `attraction_phrase_counts` (word cloud)
+
+ทดสอบปลายทางกับ Postgres จำลอง: `FRIEND_PG_DSN="host=... dbname=..." pytest tests/test_friend_db.py`
