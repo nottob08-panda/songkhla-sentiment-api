@@ -544,7 +544,7 @@ def process_v9(text, items):
                                      and _near(aspect, flat)) else ""
         a = "" if a in GENERIC_ASPECTS else a
         p, how = drop_thi(normalize_v9(span), opinion), "span"
-        if a and p.startswith("เป็น" + a):                   # เป็นประสบการณ์ดี -> ประสบการณ์ดี
+        if (a and p.startswith("เป็น" + a)) or p.startswith("เป็นสถานที่"):   # เป็นประสบการณ์ดี / เป็นสถานที่ดี
             p = p[len("เป็น"):]
         if a and aspect not in span:
             p = _join(a, p)
